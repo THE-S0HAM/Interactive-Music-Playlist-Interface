@@ -7,7 +7,7 @@ class SpotifyAuthManager:
     def __init__(self):
         self.client_id = None
         self.client_secret = None
-        self.redirect_uri = "http://localhost:8888/callback"
+        self.redirect_uri = "http://127.0.0.1:8888/callback"  # Must match exactly what's in Spotify Dashboard
         self.scope = "user-library-read user-top-read playlist-modify-public user-read-recently-played"
         self.spotify = None
         self.user = None
@@ -48,12 +48,23 @@ class SpotifyAuthManager:
             return False, "Missing Spotify API credentials"
         
         try:
-            # Simple direct authentication
+            # Check if we have tokens from the simple auth process
+            if os.path.exists(".spotify_tokens"):
+                with open(".spotify_tokens", "r") as f:
+                    tokens = json.load(f)
+                    access_token = tokens.get("access_token")
+                    if access_token:
+                        self.spotify = spotipy.Spotify(auth=access_token)
+                        self.user = self.spotify.current_user()
+                        return True, "Authentication successful using saved token"
+            
+            # If no tokens or token failed, use standard OAuth
             auth_manager = SpotifyOAuth(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
-                redirect_uri=self.redirect_uri,
-                scope=self.scope
+                redirect_uri="http://127.0.0.1:8888/callback",  # Use exact URI from Spotify Dashboard
+                scope=self.scope,
+                open_browser=False  # Don't open browser automatically
             )
             
             self.spotify = spotipy.Spotify(auth_manager=auth_manager)
@@ -61,6 +72,7 @@ class SpotifyAuthManager:
             return True, "Authentication successful"
         except Exception as e:
             print(f"Authentication error: {e}")
+            print("Please run spotify_simple_auth.py first to authenticate")
             return False, f"Authentication failed: {str(e)}"
     
     def get_spotify_client(self):
